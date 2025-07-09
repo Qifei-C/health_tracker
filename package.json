@@ -1,0 +1,26 @@
+{
+  "name": "health-tracker",
+  "version": "1.0.0",
+  "description": "A health tracking application for glucose, ketones, food, and body metrics",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6",
+    "bcryptjs": "^2.4.3",
+    "express-session": "^1.17.3",
+    "ejs": "^3.1.9",
+    "multer": "^1.4.5-lts.1",
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["health", "glucose", "ketones", "tracking"],
+  "author": "",
+  "license": "ISC"
+}

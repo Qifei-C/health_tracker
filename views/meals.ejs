@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meals - Health Tracker</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>Health Tracker</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/health">Glucose & Ketones</a>
+            <a href="/food">Food</a>
+            <a href="/food/meals" class="active">Meals</a>
+            <a href="/body">Body Metrics</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+    
+    <main class="container">
+        <h2>Meal Tracking</h2>
+        
+        <div class="form-section">
+            <h3>Log New Meal</h3>
+            <form id="mealForm" method="POST" action="/food/meals/add" class="meal-form">
+                <div class="form-group">
+                    <label for="mealType">Meal Type:</label>
+                    <select id="mealType" name="mealType" required>
+                        <option value="">Select meal type</option>
+                        <option value="breakfast">Breakfast</option>
+                        <option value="lunch">Lunch</option>
+                        <option value="dinner">Dinner</option>
+                        <option value="snack">Snack</option>
+                    </select>
+                </div>
+                
+                <div class="food-items-section">
+                    <h4>Food Items</h4>
+                    <div id="foodItemsContainer">
+                        <div class="food-item-row">
+                            <select name="foodItems[0][foodId]" class="food-select" required>
+                                <option value="">Select food item</option>
+                            </select>
+                            <input type="number" name="foodItems[0][quantity]" placeholder="Quantity (g)" step="0.1" required>
+                            <button type="button" onclick="removeFoodItem(this)">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addFoodItem()">Add Food Item</button>
+                </div>
+                
+                <button type="submit">Log Meal</button>
+            </form>
+        </div>
+        
+        <div class="meals-section">
+            <h3>Recent Meals</h3>
+            <div class="meals-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Meal Type</th>
+                            <th>Foods</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (meals.length > 0) { %>
+                            <% meals.forEach(meal => { %>
+                                <tr>
+                                    <td><%= new Date(meal.timestamp).toLocaleDateString() %></td>
+                                    <td><%= meal.meal_type %></td>
+                                    <td><%= meal.foods || 'No foods' %></td>
+                                </tr>
+                            <% }); %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="3">No meals logged yet. Log your first meal above.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        let foodItemIndex = 1;
+        
+        // Load food items for select dropdowns
+        fetch('/food')
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const foodItems = [];
+                
+                // Extract food items from the food page
+                const rows = doc.querySelectorAll('.food-table tbody tr');
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length >= 3) {
+                        foodItems.push({
+                            name: cells[0].textContent.trim(),
+                            weight: cells[1].textContent.trim(),
+                            calories: cells[2].textContent.trim()
+                        });
+                    }
+                });
+                
+                // Populate select dropdowns
+                const selects = document.querySelectorAll('.food-select');
+                selects.forEach(select => {
+                    foodItems.forEach((item, index) => {
+                        const option = document.createElement('option');
+                        option.value = index + 1; // Assuming food IDs start from 1
+                        option.textContent = `${item.name} (${item.weight}g, ${item.calories} cal)`;
+                        select.appendChild(option);
+                    });
+                });
+            });
+        
+        function addFoodItem() {
+            const container = document.getElementById('foodItemsContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'food-item-row';
+            newRow.innerHTML = `
+                <select name="foodItems[${foodItemIndex}][foodId]" class="food-select" required>
+                    <option value="">Select food item</option>
+                </select>
+                <input type="number" name="foodItems[${foodItemIndex}][quantity]" placeholder="Quantity (g)" step="0.1" required>
+                <button type="button" onclick="removeFoodItem(this)">Remove</button>
+            `;
+            container.appendChild(newRow);
+            
+            // Populate the new select dropdown
+            const newSelect = newRow.querySelector('.food-select');
+            const firstSelect = document.querySelector('.food-select');
+            for (let i = 1; i < firstSelect.options.length; i++) {
+                const option = firstSelect.options[i].cloneNode(true);
+                newSelect.appendChild(option);
+            }
+            
+            foodItemIndex++;
+        }
+        
+        function removeFoodItem(button) {
+            const row = button.parentElement;
+            row.remove();
+        }
+        
+        // Handle form submission
+        document.getElementById('mealForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const foodItems = [];
+            
+            // Extract food items from form data
+            const foodIds = formData.getAll('foodItems[][foodId]');
+            const quantities = formData.getAll('foodItems[][quantity]');
+            
+            for (let i = 0; i < foodIds.length; i++) {
+                if (foodIds[i] && quantities[i]) {
+                    foodItems.push({
+                        foodId: parseInt(foodIds[i]),
+                        quantity: parseFloat(quantities[i])
+                    });
+                }
+            }
+            
+            // Create the request body
+            const requestBody = {
+                mealType: formData.get('mealType'),
+                foodItems: foodItems
+            };
+            
+            fetch('/food/meals/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error logging meal');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

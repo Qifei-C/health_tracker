@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Body Metrics - Health Tracker</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>Health Tracker</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/health">Glucose & Ketones</a>
+            <a href="/food">Food</a>
+            <a href="/food/meals">Meals</a>
+            <a href="/body" class="active">Body Metrics</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+    
+    <main class="container">
+        <h2>Body Metrics</h2>
+        
+        <div class="form-section">
+            <h3>Log Body Metrics</h3>
+            <form method="POST" action="/body/add" class="body-form">
+                <div class="form-group">
+                    <label for="weight">Weight (kg):</label>
+                    <input type="number" id="weight" name="weight" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label for="fatWeight">Fat Weight (kg):</label>
+                    <input type="number" id="fatWeight" name="fatWeight" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="muscleWeight">Muscle Weight (kg):</label>
+                    <input type="number" id="muscleWeight" name="muscleWeight" step="0.1">
+                </div>
+                <button type="submit">Log Metrics</button>
+            </form>
+        </div>
+        
+        <div class="metrics-section">
+            <h3>Recent Metrics</h3>
+            <div class="metrics-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Weight (kg)</th>
+                            <th>Fat Weight (kg)</th>
+                            <th>Muscle Weight (kg)</th>
+                            <th>BMI</th>
+                            <th>Fat %</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (metrics.length > 0) { %>
+                            <% metrics.forEach(metric => { %>
+                                <tr>
+                                    <td><%= new Date(metric.timestamp).toLocaleDateString() %></td>
+                                    <td><%= metric.weight %></td>
+                                    <td><%= metric.fat_weight || '-' %></td>
+                                    <td><%= metric.muscle_weight || '-' %></td>
+                                    <td>
+                                        <% if (metric.bmi) { %>
+                                            <span class="bmi-value <%= metric.bmi < 18.5 ? 'underweight' : metric.bmi < 25 ? 'normal' : metric.bmi < 30 ? 'overweight' : 'obese' %>">
+                                                <%= metric.bmi.toFixed(1) %>
+                                            </span>
+                                        <% } else { %>
+                                            -
+                                        <% } %>
+                                    </td>
+                                    <td><%= metric.fat_percentage ? metric.fat_percentage.toFixed(1) + '%' : '-' %></td>
+                                    <td>
+                                        <button onclick="deleteMetric(<%= metric.id %>)" class="delete-btn">Delete</button>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="7">No metrics yet. Log your first measurement above.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h3>BMI Reference</h3>
+            <ul>
+                <li><strong>< 18.5:</strong> Underweight</li>
+                <li><strong>18.5 - 24.9:</strong> Normal weight</li>
+                <li><strong>25 - 29.9:</strong> Overweight</li>
+                <li><strong>≥ 30:</strong> Obese</li>
+            </ul>
+        </div>
+    </main>
+    
+    <script>
+        function deleteMetric(id) {
+            if (confirm('Are you sure you want to delete this metric?')) {
+                fetch(`/body/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error deleting metric');
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
