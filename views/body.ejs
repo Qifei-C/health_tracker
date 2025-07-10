@@ -17,6 +17,7 @@
             <a href="/food">Food</a>
             <a href="/food/meals">Meals</a>
             <a href="/body" class="active">Body Metrics</a>
+            <a href="/settings">Settings</a>
             <a href="/logout">Logout</a>
         </div>
     </nav>
@@ -28,18 +29,20 @@
             <h3>Log Body Metrics</h3>
             <form method="POST" action="/body/add" class="body-form">
                 <div class="form-group">
-                    <label for="weight">Weight (kg):</label>
+                    <label for="weight">Weight (<%= settings.weight_unit %>):</label>
                     <input type="number" id="weight" name="weight" step="0.1" required>
                 </div>
                 <div class="form-group">
-                    <label for="fatWeight">Fat Weight (kg):</label>
+                    <label for="fatWeight">Fat Weight (<%= settings.weight_unit %>):</label>
                     <input type="number" id="fatWeight" name="fatWeight" step="0.1">
                 </div>
                 <div class="form-group">
-                    <label for="muscleWeight">Muscle Weight (kg):</label>
+                    <label for="muscleWeight">Muscle Weight (<%= settings.weight_unit %>):</label>
                     <input type="number" id="muscleWeight" name="muscleWeight" step="0.1">
                 </div>
-                <button type="submit">Log Metrics</button>
+                <div class="form-group button-group">
+                    <button type="submit">Log Metrics</button>
+                </div>
             </form>
         </div>
         
@@ -50,9 +53,9 @@
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th>Weight (kg)</th>
-                            <th>Fat Weight (kg)</th>
-                            <th>Muscle Weight (kg)</th>
+                            <th>Weight (<%= settings.weight_unit %>)</th>
+                            <th>Fat Weight (<%= settings.weight_unit %>)</th>
+                            <th>Muscle Weight (<%= settings.weight_unit %>)</th>
                             <th>BMI</th>
                             <th>Fat %</th>
                             <th>Actions</th>

@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../models/database');
+const { toStandardUnit, fromStandardUnit } = require('../utils/unitConversion');
 const router = express.Router();
 
 function calculateGKI(glucose, ketones) {
@@ -7,37 +8,104 @@ function calculateGKI(glucose, ketones) {
 }
 
 router.get('/', (req, res) => {
-  db.all(
-    'SELECT * FROM glucose_readings WHERE user_id = ? ORDER BY timestamp DESC',
+  // Get user settings first
+  db.get(
+    'SELECT * FROM user_settings WHERE user_id = ?',
     [req.session.userId],
-    (err, readings) => {
+    (err, settings) => {
       if (err) {
         return res.status(500).send('Database error');
       }
-      res.render('health', { readings });
+      
+      // Default settings if none exist
+      if (!settings) {
+        settings = {
+          glucose_unit: 'mg/dL',
+          ketone_unit: 'mmol/L'
+        };
+      }
+      
+      // Get readings
+      db.all(
+        'SELECT * FROM glucose_readings WHERE user_id = ? ORDER BY timestamp DESC',
+        [req.session.userId],
+        (err, readings) => {
+          if (err) {
+            return res.status(500).send('Database error');
+          }
+          
+          // Convert readings to user's preferred units and format appropriately
+          const convertedReadings = readings.map(reading => {
+            const glucoseConverted = fromStandardUnit(reading.glucose_level, 'glucose', settings.glucose_unit);
+            const ketoneConverted = fromStandardUnit(reading.ketone_level, 'ketone', settings.ketone_unit);
+            
+            return {
+              ...reading,
+              glucose_level: glucoseConverted,
+              ketone_level: ketoneConverted,
+              // Format based on units
+              glucose_display: settings.glucose_unit === 'mg/dL' 
+                ? Math.round(glucoseConverted).toString()
+                : glucoseConverted.toFixed(2),
+              ketone_display: settings.ketone_unit === 'mg/dL'
+                ? Math.round(ketoneConverted).toString()
+                : ketoneConverted.toFixed(1)
+            };
+          });
+          
+          res.render('health', { 
+            readings: convertedReadings,
+            settings
+          });
+        }
+      );
     }
   );
 });
 
 router.post('/add', (req, res) => {
   const { glucose, ketones } = req.body;
-  const glucoseLevel = parseFloat(glucose);
-  const ketoneLevel = parseFloat(ketones);
   
-  if (isNaN(glucoseLevel) || isNaN(ketoneLevel)) {
-    return res.status(400).send('Invalid glucose or ketone values');
-  }
-  
-  const gki = calculateGKI(glucoseLevel, ketoneLevel);
-  
-  db.run(
-    'INSERT INTO glucose_readings (user_id, glucose_level, ketone_level, gki) VALUES (?, ?, ?, ?)',
-    [req.session.userId, glucoseLevel, ketoneLevel, gki],
-    function(err) {
+  // Get user settings to know which units they're using
+  db.get(
+    'SELECT * FROM user_settings WHERE user_id = ?',
+    [req.session.userId],
+    (err, settings) => {
       if (err) {
-        return res.status(500).send('Error saving reading');
+        return res.status(500).send('Database error');
       }
-      res.redirect('/health');
+      
+      // Default settings if none exist
+      if (!settings) {
+        settings = {
+          glucose_unit: 'mg/dL',
+          ketone_unit: 'mmol/L'
+        };
+      }
+      
+      const glucoseLevel = parseFloat(glucose);
+      const ketoneLevel = parseFloat(ketones);
+      
+      if (isNaN(glucoseLevel) || isNaN(ketoneLevel)) {
+        return res.status(400).send('Invalid glucose or ketone values');
+      }
+      
+      // Convert to standard units for storage
+      const glucoseStandard = toStandardUnit(glucoseLevel, 'glucose', settings.glucose_unit);
+      const ketoneStandard = toStandardUnit(ketoneLevel, 'ketone', settings.ketone_unit);
+      
+      const gki = calculateGKI(glucoseStandard, ketoneStandard);
+      
+      db.run(
+        'INSERT INTO glucose_readings (user_id, glucose_level, ketone_level, gki) VALUES (?, ?, ?, ?)',
+        [req.session.userId, glucoseStandard, ketoneStandard, gki],
+        function(err) {
+          if (err) {
+            return res.status(500).send('Error saving reading');
+          }
+          res.redirect('/health');
+        }
+      );
     }
   );
 });

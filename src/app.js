@@ -8,6 +8,7 @@ const healthRoutes = require('./routes/health');
 const foodRoutes = require('./routes/food');
 const bodyRoutes = require('./routes/body');
 const dashboardRoutes = require('./routes/dashboard');
+const settingsRoutes = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,6 +40,7 @@ app.use('/health', requireAuth, healthRoutes);
 app.use('/food', requireAuth, foodRoutes);
 app.use('/body', requireAuth, bodyRoutes);
 app.use('/dashboard', requireAuth, dashboardRoutes);
+app.use('/settings', requireAuth, settingsRoutes);
 
 app.get('/', (req, res) => {
   if (req.session.userId) {

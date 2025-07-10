@@ -17,6 +17,7 @@
             <a href="/food">Food</a>
             <a href="/food/meals" class="active">Meals</a>
             <a href="/body">Body Metrics</a>
+            <a href="/settings">Settings</a>
             <a href="/logout">Logout</a>
         </div>
     </nav>
@@ -49,10 +50,12 @@
                             <button type="button" onclick="removeFoodItem(this)">Remove</button>
                         </div>
                     </div>
-                    <button type="button" onclick="addFoodItem()">Add Food Item</button>
                 </div>
                 
-                <button type="submit">Log Meal</button>
+                <div class="meal-buttons">
+                    <button type="button" onclick="addFoodItem()">Add Food Item</button>
+                    <button type="submit">Log Meal</button>
+                </div>
             </form>
         </div>
         

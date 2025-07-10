@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Health Tracker</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>Health Tracker</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/health">Glucose & Ketones</a>
+            <a href="/food">Food</a>
+            <a href="/food/meals">Meals</a>
+            <a href="/body">Body Metrics</a>
+            <a href="/settings" class="active">Settings</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+    
+    <main class="container">
+        <h2>Settings</h2>
+        
+        <div class="form-section">
+            <h3>Unit Preferences</h3>
+            <form method="POST" action="/settings/update" class="settings-form">
+                <div class="settings-grid">
+                    <div class="form-group">
+                        <label for="glucose_unit">Glucose Unit:</label>
+                        <select id="glucose_unit" name="glucose_unit" required>
+                            <option value="mg/dL" <%= settings.glucose_unit === 'mg/dL' ? 'selected' : '' %>>mg/dL</option>
+                            <option value="mmol/L" <%= settings.glucose_unit === 'mmol/L' ? 'selected' : '' %>>mmol/L</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ketone_unit">Ketone Unit:</label>
+                        <select id="ketone_unit" name="ketone_unit" required>
+                            <option value="mmol/L" <%= settings.ketone_unit === 'mmol/L' ? 'selected' : '' %>>mmol/L</option>
+                            <option value="mg/dL" <%= settings.ketone_unit === 'mg/dL' ? 'selected' : '' %>>mg/dL</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="weight_unit">Weight Unit:</label>
+                        <select id="weight_unit" name="weight_unit" required>
+                            <option value="kg" <%= settings.weight_unit === 'kg' ? 'selected' : '' %>>Kilograms (kg)</option>
+                            <option value="lb" <%= settings.weight_unit === 'lb' ? 'selected' : '' %>>Pounds (lb)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="height_unit">Height Unit:</label>
+                        <select id="height_unit" name="height_unit" required>
+                            <option value="cm" <%= settings.height_unit === 'cm' ? 'selected' : '' %>>Centimeters (cm)</option>
+                            <option value="in" <%= settings.height_unit === 'in' ? 'selected' : '' %>>Inches (in)</option>
+                            <option value="ft" <%= settings.height_unit === 'ft' ? 'selected' : '' %>>Feet (ft)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group button-group">
+                    <button type="submit">Save Settings</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="info-section">
+            <h3>Unit Conversions</h3>
+            <ul>
+                <li><strong>Glucose:</strong> 1 mmol/L = 18 mg/dL</li>
+                <li><strong>Ketones:</strong> 1 mmol/L = 10 mg/dL</li>
+                <li><strong>Weight:</strong> 1 kg = 2.20462 lb</li>
+                <li><strong>Height:</strong> 1 cm = 0.393701 in = 0.0328084 ft</li>
+            </ul>
+        </div>
+    </main>
+</body>
+</html>

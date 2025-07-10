@@ -60,6 +60,18 @@ db.serialize(() => {
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS user_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL UNIQUE,
+    glucose_unit TEXT DEFAULT 'mg/dL',
+    ketone_unit TEXT DEFAULT 'mmol/L',
+    weight_unit TEXT DEFAULT 'kg',
+    height_unit TEXT DEFAULT 'cm',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+  )`);
 });
 
 module.exports = db;
