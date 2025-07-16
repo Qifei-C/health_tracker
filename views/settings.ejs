@@ -69,6 +69,52 @@
             </form>
         </div>
         
+        <div class="form-section">
+            <h3>Account Settings</h3>
+            <form method="POST" action="/settings/account" class="settings-form">
+                <div class="settings-grid">
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" name="username" value="<%= username %>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="current_password">Current Password:</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="current_password" name="current_password" placeholder="Leave blank to keep current">
+                            <button type="button" class="password-toggle" onclick="togglePassword('current_password')">
+                                <span id="current_password-toggle-text">Show</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_password">New Password:</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="new_password" name="new_password" placeholder="Leave blank to keep current">
+                            <button type="button" class="password-toggle" onclick="togglePassword('new_password')">
+                                <span id="new_password-toggle-text">Show</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm New Password:</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password">
+                            <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
+                                <span id="confirm_password-toggle-text">Show</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group button-group">
+                    <button type="submit">Update Account</button>
+                </div>
+            </form>
+        </div>
+        
         <div class="info-section">
             <h3>Unit Conversions</h3>
             <ul>
@@ -79,5 +125,20 @@
             </ul>
         </div>
     </main>
+    
+    <script>
+        function togglePassword(fieldId) {
+            const passwordInput = document.getElementById(fieldId);
+            const toggleText = document.getElementById(fieldId + '-toggle-text');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleText.textContent = 'Hide';
+            } else {
+                passwordInput.type = 'password';
+                toggleText.textContent = 'Show';
+            }
+        }
+    </script>
 </body>
 </html>

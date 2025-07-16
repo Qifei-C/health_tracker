@@ -13,6 +13,10 @@ function calculateFatPercentage(weight, fatWeight) {
 }
 
 router.get('/', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = 15;
+  const offset = (page - 1) * limit;
+  
   // Get user settings first
   db.get(
     'SELECT * FROM user_settings WHERE user_id = ?',
@@ -29,27 +33,44 @@ router.get('/', (req, res) => {
         };
       }
       
-      // Get metrics
-      db.all(
-        'SELECT * FROM body_metrics WHERE user_id = ? ORDER BY timestamp DESC',
+      // Get total count for pagination
+      db.get(
+        'SELECT COUNT(*) as total FROM body_metrics WHERE user_id = ?',
         [req.session.userId],
-        (err, metrics) => {
+        (err, countResult) => {
           if (err) {
             return res.status(500).send('Database error');
           }
           
-          // Convert metrics to user's preferred units
-          const convertedMetrics = metrics.map(metric => ({
-            ...metric,
-            weight: fromStandardUnit(metric.weight, 'weight', settings.weight_unit),
-            fat_weight: metric.fat_weight ? fromStandardUnit(metric.fat_weight, 'weight', settings.weight_unit) : null,
-            muscle_weight: metric.muscle_weight ? fromStandardUnit(metric.muscle_weight, 'weight', settings.weight_unit) : null
-          }));
+          const totalRecords = countResult.total;
+          const totalPages = Math.ceil(totalRecords / limit);
           
-          res.render('body', { 
-            metrics: convertedMetrics,
-            settings
-          });
+          // Get metrics with pagination
+          db.all(
+            'SELECT * FROM body_metrics WHERE user_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+            [req.session.userId, limit, offset],
+            (err, metrics) => {
+              if (err) {
+                return res.status(500).send('Database error');
+              }
+              
+              // Convert metrics to user's preferred units
+              const convertedMetrics = metrics.map(metric => ({
+                ...metric,
+                weight: fromStandardUnit(metric.weight, 'weight', settings.weight_unit),
+                fat_weight: metric.fat_weight ? fromStandardUnit(metric.fat_weight, 'weight', settings.weight_unit) : null,
+                muscle_weight: metric.muscle_weight ? fromStandardUnit(metric.muscle_weight, 'weight', settings.weight_unit) : null
+              }));
+              
+              res.render('body', { 
+                metrics: convertedMetrics,
+                settings,
+                currentPage: page,
+                totalPages: totalPages,
+                totalRecords: totalRecords
+              });
+            }
+          );
         }
       );
     }

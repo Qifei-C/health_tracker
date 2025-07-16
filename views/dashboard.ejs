@@ -186,7 +186,8 @@
                     pointRadius: 4,
                     pointHoverRadius: 6,
                     yAxisID: 'y',
-                    spanGaps: true
+                    spanGaps: true,
+                    tension: 0.4
                 }, {
                     label: 'Ketones (mmol/L)',
                     data: ketoneMeans.map(d => d ? d.y : null),
@@ -196,7 +197,8 @@
                     pointRadius: 4,
                     pointHoverRadius: 6,
                     yAxisID: 'y1',
-                    spanGaps: true
+                    spanGaps: true,
+                    tension: 0.4
                 }, {
                     label: 'GKI',
                     data: gkiMeans.map(d => d ? d.y : null),
@@ -206,7 +208,8 @@
                     pointRadius: 4,
                     pointHoverRadius: 6,
                     yAxisID: 'y2',
-                    spanGaps: true
+                    spanGaps: true,
+                    tension: 0.4
                 }];
                 
                 // Add error bars as area fills
@@ -220,7 +223,8 @@
                         fill: false,
                         pointRadius: 0,
                         yAxisID: 'y',
-                        showLine: true
+                        showLine: true,
+                        tension: 0.4
                     });
                     // Lower bound with fill
                     datasets.push({
@@ -231,7 +235,8 @@
                         fill: '-1', // Fill to previous dataset
                         pointRadius: 0,
                         yAxisID: 'y',
-                        showLine: true
+                        showLine: true,
+                        tension: 0.4
                     });
                 }
                 
@@ -245,7 +250,8 @@
                         fill: false,
                         pointRadius: 0,
                         yAxisID: 'y1',
-                        showLine: true
+                        showLine: true,
+                        tension: 0.4
                     });
                     // Lower bound with fill
                     datasets.push({
@@ -256,7 +262,8 @@
                         fill: '-1', // Fill to previous dataset
                         pointRadius: 0,
                         yAxisID: 'y1',
-                        showLine: true
+                        showLine: true,
+                        tension: 0.4
                     });
                 }
                 
@@ -270,7 +277,8 @@
                         fill: false,
                         pointRadius: 0,
                         yAxisID: 'y2',
-                        showLine: true
+                        showLine: true,
+                        tension: 0.4
                     });
                     // Lower bound with fill
                     datasets.push({
@@ -281,7 +289,8 @@
                         fill: '-1', // Fill to previous dataset
                         pointRadius: 0,
                         yAxisID: 'y2',
-                        showLine: true
+                        showLine: true,
+                        tension: 0.4
                     });
                 }
             }

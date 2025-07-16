@@ -90,6 +90,22 @@
                     </tbody>
                 </table>
             </div>
+            
+            <% if (totalPages > 1) { %>
+                <div class="pagination">
+                    <% if (currentPage > 1) { %>
+                        <a href="/food?page=<%= currentPage - 1 %>" class="pagination-btn">← Previous</a>
+                    <% } %>
+                    
+                    <div class="pagination-info">
+                        Page <%= currentPage %> of <%= totalPages %> (Total: <%= totalRecords %> items)
+                    </div>
+                    
+                    <% if (currentPage < totalPages) { %>
+                        <a href="/food?page=<%= currentPage + 1 %>" class="pagination-btn">Next →</a>
+                    <% } %>
+                </div>
+            <% } %>
         </div>
     </main>
 </body>

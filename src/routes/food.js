@@ -9,14 +9,38 @@ const router = express.Router();
 const upload = multer({ dest: path.join(__dirname, '../../uploads/') });
 
 router.get('/', (req, res) => {
-  db.all(
-    'SELECT * FROM food_items WHERE user_id = ? OR user_id IS NULL ORDER BY name',
+  const page = parseInt(req.query.page) || 1;
+  const limit = 15;
+  const offset = (page - 1) * limit;
+  
+  // Get total count for pagination
+  db.get(
+    'SELECT COUNT(*) as total FROM food_items WHERE user_id = ? OR user_id IS NULL',
     [req.session.userId],
-    (err, foodItems) => {
+    (err, countResult) => {
       if (err) {
         return res.status(500).send('Database error');
       }
-      res.render('food', { foodItems });
+      
+      const totalRecords = countResult.total;
+      const totalPages = Math.ceil(totalRecords / limit);
+      
+      // Get food items with pagination
+      db.all(
+        'SELECT * FROM food_items WHERE user_id = ? OR user_id IS NULL ORDER BY name LIMIT ? OFFSET ?',
+        [req.session.userId, limit, offset],
+        (err, foodItems) => {
+          if (err) {
+            return res.status(500).send('Database error');
+          }
+          res.render('food', { 
+            foodItems,
+            currentPage: page,
+            totalPages: totalPages,
+            totalRecords: totalRecords
+          });
+        }
+      );
     }
   );
 });
