@@ -75,7 +75,7 @@ router.get('/api/chart-data', (req, res) => {
           ketone_level,
           gki,
           timestamp,
-          date(timestamp, 'weekday 0', '-6 days') as week_start
+          strftime('%Y-%m-%d', timestamp, 'weekday 0', '-6 days') as week_start
         FROM glucose_readings 
         WHERE user_id = ? 
         ORDER BY timestamp ASC
@@ -88,7 +88,7 @@ router.get('/api/chart-data', (req, res) => {
           ketone_level,
           gki,
           timestamp,
-          date(timestamp, 'start of month') as month_start
+          substr(timestamp, 1, 7) || '-01' as month_start
         FROM glucose_readings 
         WHERE user_id = ? 
         ORDER BY timestamp ASC
@@ -104,6 +104,11 @@ router.get('/api/chart-data', (req, res) => {
       if (period === 'weekly' || period === 'monthly') {
         const groupKey = period === 'weekly' ? 'week_start' : 'month_start';
         const grouped = {};
+        
+        console.log(`First few ${period} readings:`, readings.slice(0, 5).map(r => ({
+          timestamp: r.timestamp,
+          [groupKey]: r[groupKey]
+        })));
         
         // Group readings by period
         readings.forEach(reading => {
@@ -145,31 +150,52 @@ router.get('/api/chart-data', (req, res) => {
           };
         }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         
+        console.log(`Processed data length for ${period}:`, processedData.length);
+        
         // For monthly view, fill in missing months
-        if (period === 'monthly' && processedData.length > 0) {
+        if (period === 'monthly') {
+          if (processedData.length === 0) {
+            console.log('No processed data for monthly view! Grouped keys:', Object.keys(grouped));
+            // If no data, return empty array
+            return res.json([]);
+          }
+          console.log('ProcessedData for monthly:', processedData);
+          console.log('Grouped data keys:', Object.keys(grouped));
+          
           const firstDate = new Date(processedData[0].timestamp);
           const lastDate = new Date(processedData[processedData.length - 1].timestamp);
+          console.log('Date range:', firstDate, 'to', lastDate);
           const filledData = [];
           
           // Start from 3 months before first data
           const startDate = new Date(firstDate);
           startDate.setMonth(startDate.getMonth() - 3);
+          startDate.setDate(1); // Ensure we're at the start of the month
           
-          // End at current month
-          const endDate = new Date();
+          // End at the last month that has data, plus one month
+          const endDate = new Date(lastDate);
+          endDate.setMonth(endDate.getMonth() + 1);
+          endDate.setDate(1);
+          
+          // Create a map of existing data by month for faster lookup
+          const dataByMonth = new Map();
+          processedData.forEach(d => {
+            const monthKey = d.timestamp.slice(0, 7);
+            dataByMonth.set(monthKey, d);
+          });
           
           // Generate all months
           const currentDate = new Date(startDate);
           while (currentDate <= endDate) {
-            const monthKey = currentDate.toISOString().slice(0, 7) + '-01';
-            const existingData = processedData.find(d => d.timestamp.slice(0, 7) === monthKey.slice(0, 7));
+            const monthKey = currentDate.toISOString().slice(0, 7);
+            const existingData = dataByMonth.get(monthKey);
             
             if (existingData) {
               filledData.push(existingData);
             } else {
               // Add empty month
               filledData.push({
-                timestamp: monthKey,
+                timestamp: monthKey + '-01',
                 glucose_stats: null,
                 ketone_stats: null,
                 gki_stats: null,
@@ -180,6 +206,7 @@ router.get('/api/chart-data', (req, res) => {
             currentDate.setMonth(currentDate.getMonth() + 1);
           }
           
+          console.log('FilledData for monthly:', filledData);
           return res.json(filledData);
         }
         

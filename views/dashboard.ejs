@@ -95,41 +95,6 @@
         let currentStartIndex = 0;
         const maxDataPoints = 12;
         
-        // Generate vertical normal distribution (right half only)
-        function generateVerticalDistribution(mean, stdDev, xPosition, scale = 0.3) {
-            const points = [];
-            const numPoints = 30;
-            
-            // Start from the center line
-            points.push({
-                x: xPosition,
-                y: mean - 3 * stdDev
-            });
-            
-            // Generate right half of distribution from -3 to +3 standard deviations
-            for (let i = 0; i <= numPoints; i++) {
-                const z = -3 + (i * 6 / numPoints); // z-score from -3 to 3
-                const y = mean + (z * stdDev);
-                // Normal distribution probability density
-                const density = (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * z * z);
-                const width = density * scale;
-                
-                // Only right side
-                points.push({
-                    x: xPosition + width,
-                    y: y
-                });
-            }
-            
-            // Close the shape back to center
-            points.push({
-                x: xPosition,
-                y: mean + 3 * stdDev
-            });
-            
-            return points;
-        }
-        
         // Initialize chart
         function initChart(data) {
             const ctx = document.getElementById('glucoseChart').getContext('2d');
@@ -168,179 +133,172 @@
                     yAxisID: 'y2'
                 }];
             } else {
-                // Vertical distribution charts for weekly/monthly - all metrics shown
+                // Line charts with error bars for weekly/monthly views
+                console.log('Weekly/Monthly displayData:', displayData);
                 
-                // Create datasets for each metric type
-                const glucoseColor = 'rgba(255, 99, 132, 0.3)';
-                const ketoneColor = 'rgba(54, 162, 235, 0.3)';
-                const gkiColor = 'rgba(75, 192, 192, 0.3)';
-                
-                // Find global min/max for normalization
-                globalMin = Infinity;
-                globalMax = -Infinity;
-                displayData.forEach(d => {
-                    if (d.glucose_stats && d.glucose_stats.mean) {
-                        globalMin = Math.min(globalMin, d.glucose_stats.mean - 3 * d.glucose_stats.stdDev);
-                        globalMax = Math.max(globalMax, d.glucose_stats.mean + 3 * d.glucose_stats.stdDev);
-                    }
-                    if (d.ketone_stats && d.ketone_stats.mean) {
-                        // Scale ketones to glucose range (multiply by 18 to convert mmol/L to mg/dL equivalent)
-                        const scaledMean = d.ketone_stats.mean * 18;
-                        const scaledStdDev = d.ketone_stats.stdDev * 18;
-                        globalMin = Math.min(globalMin, scaledMean - 3 * scaledStdDev);
-                        globalMax = Math.max(globalMax, scaledMean + 3 * scaledStdDev);
-                    }
-                    if (d.gki_stats && d.gki_stats.mean) {
-                        // Scale GKI to glucose range (multiply by 10 for visibility)
-                        const scaledMean = d.gki_stats.mean * 10;
-                        const scaledStdDev = d.gki_stats.stdDev * 10;
-                        globalMin = Math.min(globalMin, scaledMean - 3 * scaledStdDev);
-                        globalMax = Math.max(globalMax, scaledMean + 3 * scaledStdDev);
-                    }
-                });
-                
-                // Set reasonable defaults if no data
-                if (!isFinite(globalMin)) globalMin = 0;
-                if (!isFinite(globalMax)) globalMax = 200;
+                // Prepare mean data with error bars
+                const glucoseMeans = [];
+                const ketoneMeans = [];
+                const gkiMeans = [];
                 
                 displayData.forEach((d, index) => {
-                    const xPos = index; // Position on x-axis (time)
-                    
-                    // Glucose distribution
                     if (d.glucose_stats && d.glucose_stats.mean) {
-                        const glucoseDist = generateVerticalDistribution(
-                            d.glucose_stats.mean,
-                            d.glucose_stats.stdDev,
-                            xPos - 0.3, // Offset to the left
-                            0.25
-                        );
-                        
-                        datasets.push({
-                            label: index === 0 ? 'Glucose (mg/dL)' : '',
-                            data: glucoseDist,
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: glucoseColor,
-                            borderWidth: 1,
-                            pointRadius: 0,
-                            fill: true,
-                            showLine: true,
-                            parsing: false
+                        glucoseMeans.push({
+                            x: index,
+                            y: d.glucose_stats.mean,
+                            yMin: d.glucose_stats.mean - d.glucose_stats.stdDev,
+                            yMax: d.glucose_stats.mean + d.glucose_stats.stdDev
                         });
-                        
-                        // Add mean line
-                        datasets.push({
-                            label: '',
-                            data: [
-                                { x: xPos - 0.3, y: d.glucose_stats.mean },
-                                { x: xPos - 0.05, y: d.glucose_stats.mean }
-                            ],
-                            borderColor: 'rgb(255, 99, 132)',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            showLine: true,
-                            fill: false,
-                            parsing: false,
-                            parsing: false
-                        });
+                    } else {
+                        glucoseMeans.push(null);
                     }
                     
-                    // Ketone distribution (scaled to glucose range)
                     if (d.ketone_stats && d.ketone_stats.mean) {
-                        const scaledMean = d.ketone_stats.mean * 18;
-                        const scaledStdDev = d.ketone_stats.stdDev * 18;
-                        
-                        const ketoneDist = generateVerticalDistribution(
-                            scaledMean,
-                            scaledStdDev,
-                            xPos, // Center position
-                            0.25
-                        );
-                        
-                        datasets.push({
-                            label: index === 0 ? 'Ketones (mmol/L × 18)' : '',
-                            data: ketoneDist,
-                            borderColor: 'rgb(54, 162, 235)',
-                            backgroundColor: ketoneColor,
-                            borderWidth: 1,
-                            pointRadius: 0,
-                            fill: true,
-                            showLine: true,
-                            parsing: false
+                        ketoneMeans.push({
+                            x: index,
+                            y: d.ketone_stats.mean,
+                            yMin: d.ketone_stats.mean - d.ketone_stats.stdDev,
+                            yMax: d.ketone_stats.mean + d.ketone_stats.stdDev
                         });
-                        
-                        // Add mean line
-                        datasets.push({
-                            label: '',
-                            data: [
-                                { x: xPos, y: scaledMean },
-                                { x: xPos + 0.25, y: scaledMean }
-                            ],
-                            borderColor: 'rgb(54, 162, 235)',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            showLine: true,
-                            fill: false,
-                            parsing: false
-                        });
+                    } else {
+                        ketoneMeans.push(null);
                     }
                     
-                    // GKI distribution (scaled for visibility)
                     if (d.gki_stats && d.gki_stats.mean) {
-                        const scaledMean = d.gki_stats.mean * 10;
-                        const scaledStdDev = d.gki_stats.stdDev * 10;
-                        
-                        const gkiDist = generateVerticalDistribution(
-                            scaledMean,
-                            scaledStdDev,
-                            xPos + 0.3, // Offset to the right
-                            0.25
-                        );
-                        
-                        datasets.push({
-                            label: index === 0 ? 'GKI (× 10)' : '',
-                            data: gkiDist,
-                            borderColor: 'rgb(75, 192, 192)',
-                            backgroundColor: gkiColor,
-                            borderWidth: 1,
-                            pointRadius: 0,
-                            fill: true,
-                            showLine: true,
-                            parsing: false
+                        gkiMeans.push({
+                            x: index,
+                            y: d.gki_stats.mean,
+                            yMin: d.gki_stats.mean - d.gki_stats.stdDev,
+                            yMax: d.gki_stats.mean + d.gki_stats.stdDev
                         });
-                        
-                        // Add mean line
-                        datasets.push({
-                            label: '',
-                            data: [
-                                { x: xPos + 0.3, y: scaledMean },
-                                { x: xPos + 0.55, y: scaledMean }
-                            ],
-                            borderColor: 'rgb(75, 192, 192)',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            showLine: true,
-                            fill: false,
-                            parsing: false
-                        });
+                    } else {
+                        gkiMeans.push(null);
                     }
                 });
                 
-                // Hide datasets without labels from legend
-                datasets = datasets.map(ds => {
-                    if (!ds.label || ds.label === '') {
-                        return { ...ds, label: null };
-                    }
-                    return ds;
-                });
+                // Create datasets with error bars
+                datasets = [{
+                    label: 'Glucose (mg/dL)',
+                    data: glucoseMeans.map(d => d ? d.y : null),
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    yAxisID: 'y',
+                    spanGaps: true
+                }, {
+                    label: 'Ketones (mmol/L)',
+                    data: ketoneMeans.map(d => d ? d.y : null),
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    yAxisID: 'y1',
+                    spanGaps: true
+                }, {
+                    label: 'GKI',
+                    data: gkiMeans.map(d => d ? d.y : null),
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    yAxisID: 'y2',
+                    spanGaps: true
+                }];
+                
+                // Add error bars as area fills
+                if (glucoseMeans.some(d => d !== null)) {
+                    // Upper bound
+                    datasets.push({
+                        label: '',
+                        data: glucoseMeans.map(d => d ? d.yMax : null),
+                        borderColor: 'transparent',
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        pointRadius: 0,
+                        yAxisID: 'y',
+                        showLine: true
+                    });
+                    // Lower bound with fill
+                    datasets.push({
+                        label: '',
+                        data: glucoseMeans.map(d => d ? d.yMin : null),
+                        borderColor: 'transparent',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        fill: '-1', // Fill to previous dataset
+                        pointRadius: 0,
+                        yAxisID: 'y',
+                        showLine: true
+                    });
+                }
+                
+                if (ketoneMeans.some(d => d !== null)) {
+                    // Upper bound
+                    datasets.push({
+                        label: '',
+                        data: ketoneMeans.map(d => d ? d.yMax : null),
+                        borderColor: 'transparent',
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        pointRadius: 0,
+                        yAxisID: 'y1',
+                        showLine: true
+                    });
+                    // Lower bound with fill
+                    datasets.push({
+                        label: '',
+                        data: ketoneMeans.map(d => d ? d.yMin : null),
+                        borderColor: 'transparent',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        fill: '-1', // Fill to previous dataset
+                        pointRadius: 0,
+                        yAxisID: 'y1',
+                        showLine: true
+                    });
+                }
+                
+                if (gkiMeans.some(d => d !== null)) {
+                    // Upper bound
+                    datasets.push({
+                        label: '',
+                        data: gkiMeans.map(d => d ? d.yMax : null),
+                        borderColor: 'transparent',
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        pointRadius: 0,
+                        yAxisID: 'y2',
+                        showLine: true
+                    });
+                    // Lower bound with fill
+                    datasets.push({
+                        label: '',
+                        data: gkiMeans.map(d => d ? d.yMin : null),
+                        borderColor: 'transparent',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        fill: '-1', // Fill to previous dataset
+                        pointRadius: 0,
+                        yAxisID: 'y2',
+                        showLine: true
+                    });
+                }
             }
             
             console.log('Creating chart with', datasets.length, 'datasets');
             console.log('First dataset:', datasets[0]);
+            console.log('Labels:', displayData.map(d => formatDate(d.timestamp)));
+            if (currentPeriod !== 'daily') {
+                console.log('Dataset 0 data:', datasets[0].data);
+                console.log('Dataset 1 data:', datasets[1].data);
+                console.log('Dataset 2 data:', datasets[2].data);
+            }
             
             glucoseChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: currentPeriod === 'daily' ? displayData.map(d => formatDate(d.timestamp)) : displayData.map((d, i) => formatDate(d.timestamp, i)),
+                        labels: displayData.map(d => formatDate(d.timestamp)),
                         datasets: datasets
                     },
                     options: {
@@ -352,12 +310,27 @@
                         },
                         plugins: {
                             tooltip: {
+                                filter: function(tooltipItem) {
+                                    // Only show tooltips for datasets with labels
+                                    return tooltipItem.dataset.label && tooltipItem.dataset.label !== '';
+                                },
                                 callbacks: {
                                     label: function(context) {
                                         const label = context.dataset.label || '';
                                         const value = context.parsed.y;
                                         
+                                        // Skip error bar datasets
+                                        if (!label || label === '') return null;
+                                        
                                         if (value !== null && value !== undefined) {
+                                            // Format based on the metric type
+                                            if (label.includes('Glucose')) {
+                                                return `${label}: ${value.toFixed(0)}`;
+                                            } else if (label.includes('Ketones')) {
+                                                return `${label}: ${value.toFixed(1)}`;
+                                            } else if (label.includes('GKI')) {
+                                                return `${label}: ${value.toFixed(2)}`;
+                                            }
                                             return `${label}: ${value.toFixed(1)}`;
                                         }
                                         
@@ -422,32 +395,13 @@
                         };
                     } else {
                         return {
-                            // Weekly/Monthly view - distribution plot
+                            // Weekly/Monthly view - line charts with multiple axes
                             x: {
-                                type: 'linear',
                                 display: true,
                                 title: {
                                     display: true,
-                                    text: currentPeriod === 'weekly' ? 'Week' : 'Month'
-                                },
-                                ticks: {
-                                    callback: function(value, index, values) {
-                                        if (Number.isInteger(value) && value >= 0 && value < displayData.length) {
-                                            const date = new Date(displayData[value].timestamp);
-                                            if (currentPeriod === 'monthly') {
-                                                return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-                                            } else if (currentPeriod === 'weekly') {
-                                                const startOfYear = new Date(date.getFullYear(), 0, 1);
-                                                const weekNumber = Math.ceil(((date - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
-                                                return `Week ${weekNumber}`;
-                                            }
-                                            return date.toLocaleDateString();
-                                        }
-                                        return '';
-                                    }
-                                },
-                                min: -0.5,
-                                max: displayData.length - 0.5
+                                    text: 'Date'
+                                }
                             },
                             y: {
                                 type: 'linear',
@@ -455,10 +409,25 @@
                                 position: 'left',
                                 title: {
                                     display: true,
-                                    text: 'Normalized Scale'
+                                    text: 'Glucose (mg/dL)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Ketones (mmol/L)'
                                 },
-                                min: Math.max(0, globalMin - 10),
-                                max: globalMax + 10
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                            },
+                            y2: {
+                                type: 'linear',
+                                display: false,
+                                position: 'right'
                             }
                         };
                     }
@@ -468,15 +437,36 @@
         }
         
         // Format date based on period
-        function formatDate(timestamp, index) {
+        function formatDate(timestamp) {
+            // Convert to string if it's a Date object
+            if (timestamp instanceof Date) {
+                timestamp = timestamp.toISOString();
+            }
+            
+            // Ensure timestamp is a string
+            if (typeof timestamp !== 'string') {
+                timestamp = String(timestamp);
+            }
+            
+            // For YYYY-MM-DD format, parse it explicitly to avoid timezone issues
+            if (timestamp.includes('-') && timestamp.length >= 10) {
+                const [year, month, day] = timestamp.split('-').map(num => parseInt(num));
+                const date = new Date(year, month - 1, day); // month is 0-indexed
+                
+                if (currentPeriod === 'monthly') {
+                    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+                } else if (currentPeriod === 'weekly') {
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
+                return date.toLocaleDateString();
+            }
+            
+            // Fallback for other timestamp formats
             const date = new Date(timestamp);
             if (currentPeriod === 'monthly') {
                 return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
             } else if (currentPeriod === 'weekly') {
-                // Calculate week number based on index or date
-                const startOfYear = new Date(date.getFullYear(), 0, 1);
-                const weekNumber = Math.ceil(((date - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
-                return `Week ${weekNumber}`;
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             }
             return date.toLocaleDateString();
         }
@@ -504,6 +494,7 @@
             fetch(`/dashboard/api/chart-data?type=glucose&period=${period}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log(`Loaded ${period} data:`, data);
                     allData = data;
                     currentStartIndex = Math.max(0, data.length - maxDataPoints); // Start from most recent
                     updateSlider();
