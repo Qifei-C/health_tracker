@@ -2,7 +2,7 @@
 
 A web application for tracking blood glucose, ketones, food intake, and body metrics with automatic calculations and visualizations.
 
-<img width="1243" alt="example" src="https://github.com/user-attachments/assets/226cb1e0-4224-4b7f-8f76-a9800c714404" />
+<img width="3456" height="5934" alt="sample_user" src="https://github.com/user-attachments/assets/95a6fbc6-7fd1-4a1a-aaa7-52ff2b4329e2" />
 
 
 ## Features
