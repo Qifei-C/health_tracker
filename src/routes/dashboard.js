@@ -58,19 +58,136 @@ router.get('/', (req, res) => {
 });
 
 router.get('/api/chart-data', (req, res) => {
-  const { type } = req.query;
+  const { type, period = 'daily' } = req.query;
   
   if (type === 'glucose') {
-    db.all(
-      'SELECT glucose_level, ketone_level, gki, timestamp FROM glucose_readings WHERE user_id = ? ORDER BY timestamp ASC',
-      [req.session.userId],
-      (err, readings) => {
-        if (err) {
-          return res.status(500).json({ error: 'Database error' });
+    let query;
+    let params = [req.session.userId];
+    
+    if (period === 'daily') {
+      // Return all daily data
+      query = 'SELECT glucose_level, ketone_level, gki, timestamp FROM glucose_readings WHERE user_id = ? ORDER BY timestamp ASC';
+    } else if (period === 'weekly') {
+      // Return all readings with week grouping info
+      query = `
+        SELECT 
+          glucose_level,
+          ketone_level,
+          gki,
+          timestamp,
+          date(timestamp, 'weekday 0', '-6 days') as week_start
+        FROM glucose_readings 
+        WHERE user_id = ? 
+        ORDER BY timestamp ASC
+      `;
+    } else if (period === 'monthly') {
+      // Return all readings with month grouping info
+      query = `
+        SELECT 
+          glucose_level,
+          ketone_level,
+          gki,
+          timestamp,
+          date(timestamp, 'start of month') as month_start
+        FROM glucose_readings 
+        WHERE user_id = ? 
+        ORDER BY timestamp ASC
+      `;
+    }
+    
+    db.all(query, params, (err, readings) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      // Process data for weekly/monthly views
+      if (period === 'weekly' || period === 'monthly') {
+        const groupKey = period === 'weekly' ? 'week_start' : 'month_start';
+        const grouped = {};
+        
+        // Group readings by period
+        readings.forEach(reading => {
+          const key = reading[groupKey];
+          if (!grouped[key]) {
+            grouped[key] = {
+              timestamp: key,
+              glucose_values: [],
+              ketone_values: [],
+              gki_values: []
+            };
+          }
+          grouped[key].glucose_values.push(reading.glucose_level);
+          grouped[key].ketone_values.push(reading.ketone_level);
+          grouped[key].gki_values.push(reading.gki);
+        });
+        
+        // Calculate statistics for each period
+        const processedData = Object.values(grouped).map(group => {
+          const calculateStats = (values) => {
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+            const stdDev = Math.sqrt(variance);
+            return {
+              mean: mean,
+              stdDev: stdDev || mean * 0.1, // Fallback if only one value
+              min: Math.min(...values),
+              max: Math.max(...values),
+              values: values
+            };
+          };
+          
+          return {
+            timestamp: group.timestamp,
+            glucose_stats: calculateStats(group.glucose_values),
+            ketone_stats: calculateStats(group.ketone_values),
+            gki_stats: calculateStats(group.gki_values),
+            count: group.glucose_values.length
+          };
+        }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        
+        // For monthly view, fill in missing months
+        if (period === 'monthly' && processedData.length > 0) {
+          const firstDate = new Date(processedData[0].timestamp);
+          const lastDate = new Date(processedData[processedData.length - 1].timestamp);
+          const filledData = [];
+          
+          // Start from 3 months before first data
+          const startDate = new Date(firstDate);
+          startDate.setMonth(startDate.getMonth() - 3);
+          
+          // End at current month
+          const endDate = new Date();
+          
+          // Generate all months
+          const currentDate = new Date(startDate);
+          while (currentDate <= endDate) {
+            const monthKey = currentDate.toISOString().slice(0, 7) + '-01';
+            const existingData = processedData.find(d => d.timestamp.slice(0, 7) === monthKey.slice(0, 7));
+            
+            if (existingData) {
+              filledData.push(existingData);
+            } else {
+              // Add empty month
+              filledData.push({
+                timestamp: monthKey,
+                glucose_stats: null,
+                ketone_stats: null,
+                gki_stats: null,
+                count: 0
+              });
+            }
+            
+            currentDate.setMonth(currentDate.getMonth() + 1);
+          }
+          
+          return res.json(filledData);
         }
+        
+        res.json(processedData);
+      } else {
         res.json(readings);
       }
-    );
+    });
   } else if (type === 'body') {
     db.all(
       'SELECT weight, fat_weight, muscle_weight, bmi, fat_percentage, timestamp FROM body_metrics WHERE user_id = ? ORDER BY timestamp ASC',

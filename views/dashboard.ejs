@@ -27,9 +27,23 @@
         <h2>Welcome back, <%= username %>!</h2>
         
         <div class="dashboard-grid">
-            <div class="dashboard-card">
+            <div class="dashboard-card full-width-chart">
                 <h3>Glucose & Ketones Chart</h3>
+                <div class="chart-controls">
+                    <div class="time-period-buttons">
+                        <button class="period-btn active" data-period="daily">Daily</button>
+                        <button class="period-btn" data-period="weekly">Weekly</button>
+                        <button class="period-btn" data-period="monthly">Monthly</button>
+                    </div>
+                </div>
                 <canvas id="glucoseChart"></canvas>
+                <div class="chart-slider-container">
+                    <input type="range" id="chartSlider" class="chart-slider" min="0" max="0" value="0">
+                    <div class="slider-labels">
+                        <span id="sliderStart">-</span>
+                        <span id="sliderEnd">-</span>
+                    </div>
+                </div>
             </div>
             
             <div class="dashboard-card">
@@ -75,43 +89,304 @@
     </main>
     
     <script>
-        // Load chart data
-        fetch('/dashboard/api/chart-data?type=glucose')
-            .then(response => response.json())
-            .then(data => {
-                const ctx = document.getElementById('glucoseChart').getContext('2d');
-                new Chart(ctx, {
+        let glucoseChart;
+        let allData = [];
+        let currentPeriod = 'daily';
+        let currentStartIndex = 0;
+        const maxDataPoints = 12;
+        
+        // Generate vertical normal distribution (right half only)
+        function generateVerticalDistribution(mean, stdDev, xPosition, scale = 0.3) {
+            const points = [];
+            const numPoints = 30;
+            
+            // Start from the center line
+            points.push({
+                x: xPosition,
+                y: mean - 3 * stdDev
+            });
+            
+            // Generate right half of distribution from -3 to +3 standard deviations
+            for (let i = 0; i <= numPoints; i++) {
+                const z = -3 + (i * 6 / numPoints); // z-score from -3 to 3
+                const y = mean + (z * stdDev);
+                // Normal distribution probability density
+                const density = (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * z * z);
+                const width = density * scale;
+                
+                // Only right side
+                points.push({
+                    x: xPosition + width,
+                    y: y
+                });
+            }
+            
+            // Close the shape back to center
+            points.push({
+                x: xPosition,
+                y: mean + 3 * stdDev
+            });
+            
+            return points;
+        }
+        
+        // Initialize chart
+        function initChart(data) {
+            const ctx = document.getElementById('glucoseChart').getContext('2d');
+            
+            if (glucoseChart) {
+                glucoseChart.destroy();
+            }
+            
+            // Limit data to maxDataPoints starting from currentStartIndex
+            const displayData = data.slice(currentStartIndex, currentStartIndex + maxDataPoints);
+            
+            // Prepare datasets based on period
+            let datasets = [];
+            let globalMin = 0;
+            let globalMax = 200;
+            
+            if (currentPeriod === 'daily') {
+                // Simple line charts for daily view
+                datasets = [{
+                    label: 'Glucose (mg/dL)',
+                    data: displayData.map(d => d.glucose_level),
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    yAxisID: 'y'
+                }, {
+                    label: 'Ketones (mmol/L)',
+                    data: displayData.map(d => d.ketone_level),
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    yAxisID: 'y1'
+                }, {
+                    label: 'GKI',
+                    data: displayData.map(d => d.gki),
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    yAxisID: 'y2'
+                }];
+            } else {
+                // Vertical distribution charts for weekly/monthly - all metrics shown
+                
+                // Create datasets for each metric type
+                const glucoseColor = 'rgba(255, 99, 132, 0.3)';
+                const ketoneColor = 'rgba(54, 162, 235, 0.3)';
+                const gkiColor = 'rgba(75, 192, 192, 0.3)';
+                
+                // Find global min/max for normalization
+                globalMin = Infinity;
+                globalMax = -Infinity;
+                displayData.forEach(d => {
+                    if (d.glucose_stats && d.glucose_stats.mean) {
+                        globalMin = Math.min(globalMin, d.glucose_stats.mean - 3 * d.glucose_stats.stdDev);
+                        globalMax = Math.max(globalMax, d.glucose_stats.mean + 3 * d.glucose_stats.stdDev);
+                    }
+                    if (d.ketone_stats && d.ketone_stats.mean) {
+                        // Scale ketones to glucose range (multiply by 18 to convert mmol/L to mg/dL equivalent)
+                        const scaledMean = d.ketone_stats.mean * 18;
+                        const scaledStdDev = d.ketone_stats.stdDev * 18;
+                        globalMin = Math.min(globalMin, scaledMean - 3 * scaledStdDev);
+                        globalMax = Math.max(globalMax, scaledMean + 3 * scaledStdDev);
+                    }
+                    if (d.gki_stats && d.gki_stats.mean) {
+                        // Scale GKI to glucose range (multiply by 10 for visibility)
+                        const scaledMean = d.gki_stats.mean * 10;
+                        const scaledStdDev = d.gki_stats.stdDev * 10;
+                        globalMin = Math.min(globalMin, scaledMean - 3 * scaledStdDev);
+                        globalMax = Math.max(globalMax, scaledMean + 3 * scaledStdDev);
+                    }
+                });
+                
+                // Set reasonable defaults if no data
+                if (!isFinite(globalMin)) globalMin = 0;
+                if (!isFinite(globalMax)) globalMax = 200;
+                
+                displayData.forEach((d, index) => {
+                    const xPos = index; // Position on x-axis (time)
+                    
+                    // Glucose distribution
+                    if (d.glucose_stats && d.glucose_stats.mean) {
+                        const glucoseDist = generateVerticalDistribution(
+                            d.glucose_stats.mean,
+                            d.glucose_stats.stdDev,
+                            xPos - 0.3, // Offset to the left
+                            0.25
+                        );
+                        
+                        datasets.push({
+                            label: index === 0 ? 'Glucose (mg/dL)' : '',
+                            data: glucoseDist,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: glucoseColor,
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            fill: true,
+                            showLine: true,
+                            parsing: false
+                        });
+                        
+                        // Add mean line
+                        datasets.push({
+                            label: '',
+                            data: [
+                                { x: xPos - 0.3, y: d.glucose_stats.mean },
+                                { x: xPos - 0.05, y: d.glucose_stats.mean }
+                            ],
+                            borderColor: 'rgb(255, 99, 132)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            showLine: true,
+                            fill: false,
+                            parsing: false,
+                            parsing: false
+                        });
+                    }
+                    
+                    // Ketone distribution (scaled to glucose range)
+                    if (d.ketone_stats && d.ketone_stats.mean) {
+                        const scaledMean = d.ketone_stats.mean * 18;
+                        const scaledStdDev = d.ketone_stats.stdDev * 18;
+                        
+                        const ketoneDist = generateVerticalDistribution(
+                            scaledMean,
+                            scaledStdDev,
+                            xPos, // Center position
+                            0.25
+                        );
+                        
+                        datasets.push({
+                            label: index === 0 ? 'Ketones (mmol/L × 18)' : '',
+                            data: ketoneDist,
+                            borderColor: 'rgb(54, 162, 235)',
+                            backgroundColor: ketoneColor,
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            fill: true,
+                            showLine: true,
+                            parsing: false
+                        });
+                        
+                        // Add mean line
+                        datasets.push({
+                            label: '',
+                            data: [
+                                { x: xPos, y: scaledMean },
+                                { x: xPos + 0.25, y: scaledMean }
+                            ],
+                            borderColor: 'rgb(54, 162, 235)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            showLine: true,
+                            fill: false,
+                            parsing: false
+                        });
+                    }
+                    
+                    // GKI distribution (scaled for visibility)
+                    if (d.gki_stats && d.gki_stats.mean) {
+                        const scaledMean = d.gki_stats.mean * 10;
+                        const scaledStdDev = d.gki_stats.stdDev * 10;
+                        
+                        const gkiDist = generateVerticalDistribution(
+                            scaledMean,
+                            scaledStdDev,
+                            xPos + 0.3, // Offset to the right
+                            0.25
+                        );
+                        
+                        datasets.push({
+                            label: index === 0 ? 'GKI (× 10)' : '',
+                            data: gkiDist,
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: gkiColor,
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            fill: true,
+                            showLine: true,
+                            parsing: false
+                        });
+                        
+                        // Add mean line
+                        datasets.push({
+                            label: '',
+                            data: [
+                                { x: xPos + 0.3, y: scaledMean },
+                                { x: xPos + 0.55, y: scaledMean }
+                            ],
+                            borderColor: 'rgb(75, 192, 192)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            showLine: true,
+                            fill: false,
+                            parsing: false
+                        });
+                    }
+                });
+                
+                // Hide datasets without labels from legend
+                datasets = datasets.map(ds => {
+                    if (!ds.label || ds.label === '') {
+                        return { ...ds, label: null };
+                    }
+                    return ds;
+                });
+            }
+            
+            console.log('Creating chart with', datasets.length, 'datasets');
+            console.log('First dataset:', datasets[0]);
+            
+            glucoseChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: data.map(d => new Date(d.timestamp).toLocaleDateString()),
-                        datasets: [{
-                            label: 'Glucose (mg/dL)',
-                            data: data.map(d => d.glucose_level),
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                            yAxisID: 'y'
-                        }, {
-                            label: 'Ketones (mmol/L)',
-                            data: data.map(d => d.ketone_level),
-                            borderColor: 'rgb(54, 162, 235)',
-                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                            yAxisID: 'y1'
-                        }, {
-                            label: 'GKI',
-                            data: data.map(d => d.gki),
-                            borderColor: 'rgb(75, 192, 192)',
-                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                            yAxisID: 'y2'
-                        }]
+                        labels: currentPeriod === 'daily' ? displayData.map(d => formatDate(d.timestamp)) : displayData.map((d, i) => formatDate(d.timestamp, i)),
+                        datasets: datasets
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         interaction: {
                             mode: 'index',
                             intersect: false,
                         },
-                        scales: {
-                            x: {
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.dataset.label || '';
+                                        const value = context.parsed.y;
+                                        
+                                        if (value !== null && value !== undefined) {
+                                            return `${label}: ${value.toFixed(1)}`;
+                                        }
+                                        
+                                        return label;
+                                    }
+                                }
+                            },
+                            legend: {
+                                labels: {
+                                    filter: function(legendItem, data) {
+                                        return legendItem.text && legendItem.text !== '';
+                                    }
+                                },
+                                onClick: function(e, legendItem, legend) {
+                                    const index = legendItem.datasetIndex;
+                                    const chart = legend.chart;
+                                    const meta = chart.getDatasetMeta(index);
+                                    
+                                    // Toggle visibility
+                                    meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                                    chart.update();
+                                }
+                            }
+                        },
+                        scales: (function() {
+                            if (currentPeriod === 'daily') {
+                                return {
+                                // Daily view - traditional time series
+                                x: {
                                 display: true,
                                 title: {
                                     display: true,
@@ -142,13 +417,125 @@
                             y2: {
                                 type: 'linear',
                                 display: false,
-                                position: 'right',
+                                position: 'right'
                             }
-                        }
+                        };
+                    } else {
+                        return {
+                            // Weekly/Monthly view - distribution plot
+                            x: {
+                                type: 'linear',
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: currentPeriod === 'weekly' ? 'Week' : 'Month'
+                                },
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        if (Number.isInteger(value) && value >= 0 && value < displayData.length) {
+                                            const date = new Date(displayData[value].timestamp);
+                                            if (currentPeriod === 'monthly') {
+                                                return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+                                            } else if (currentPeriod === 'weekly') {
+                                                const startOfYear = new Date(date.getFullYear(), 0, 1);
+                                                const weekNumber = Math.ceil(((date - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+                                                return `Week ${weekNumber}`;
+                                            }
+                                            return date.toLocaleDateString();
+                                        }
+                                        return '';
+                                    }
+                                },
+                                min: -0.5,
+                                max: displayData.length - 0.5
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Normalized Scale'
+                                },
+                                min: Math.max(0, globalMin - 10),
+                                max: globalMax + 10
+                            }
+                        };
                     }
+                })()
+                }
+            });
+        }
+        
+        // Format date based on period
+        function formatDate(timestamp, index) {
+            const date = new Date(timestamp);
+            if (currentPeriod === 'monthly') {
+                return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+            } else if (currentPeriod === 'weekly') {
+                // Calculate week number based on index or date
+                const startOfYear = new Date(date.getFullYear(), 0, 1);
+                const weekNumber = Math.ceil(((date - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+                return `Week ${weekNumber}`;
+            }
+            return date.toLocaleDateString();
+        }
+        
+        // Update slider
+        function updateSlider() {
+            const slider = document.getElementById('chartSlider');
+            const maxSliderValue = Math.max(0, allData.length - maxDataPoints);
+            slider.max = maxSliderValue;
+            slider.value = currentStartIndex;
+            
+            // Update labels
+            if (allData.length > 0) {
+                const startDate = new Date(allData[currentStartIndex].timestamp);
+                const endIndex = Math.min(currentStartIndex + maxDataPoints - 1, allData.length - 1);
+                const endDate = new Date(allData[endIndex].timestamp);
+                
+                document.getElementById('sliderStart').textContent = formatDate(startDate);
+                document.getElementById('sliderEnd').textContent = formatDate(endDate);
+            }
+        }
+        
+        // Load data for selected period
+        function loadData(period) {
+            fetch(`/dashboard/api/chart-data?type=glucose&period=${period}`)
+                .then(response => response.json())
+                .then(data => {
+                    allData = data;
+                    currentStartIndex = Math.max(0, data.length - maxDataPoints); // Start from most recent
+                    updateSlider();
+                    initChart(allData);
+                })
+                .catch(err => console.error('Error loading data:', err));
+        }
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Period buttons
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelector('.period-btn.active').classList.remove('active');
+                    this.classList.add('active');
+                    currentPeriod = this.dataset.period;
+                    loadData(currentPeriod);
                 });
             });
+            
+            // Slider
+            document.getElementById('chartSlider').addEventListener('input', function() {
+                currentStartIndex = parseInt(this.value);
+                initChart(allData);
+                updateSlider();
+            });
+            
+            // Initial load
+            loadData('daily');
+        });
         
+        // Load body metrics chart
         fetch('/dashboard/api/chart-data?type=body')
             .then(response => response.json())
             .then(data => {

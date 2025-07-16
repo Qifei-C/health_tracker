@@ -157,6 +157,117 @@ button:hover {
     padding-bottom: 0.5rem;
 }
 
+.dashboard-card.full-width-chart {
+    grid-column: 1 / -1;
+}
+
+.dashboard-card.full-width-chart canvas {
+    height: 400px;
+    max-height: 400px;
+}
+
+.chart-controls {
+    margin-bottom: 1rem;
+}
+
+.time-period-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.period-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #3498db;
+    background-color: white;
+    color: #3498db;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.period-btn:hover {
+    background-color: #e8f4f8;
+}
+
+.period-btn.active {
+    background-color: #3498db;
+    color: white;
+}
+
+.metric-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.metric-btn {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #e74c3c;
+    background-color: white;
+    color: #e74c3c;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+}
+
+.metric-btn:hover {
+    background-color: #ffeae9;
+}
+
+.metric-btn.active {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.chart-slider-container {
+    margin-top: 1rem;
+    padding: 0 1rem;
+}
+
+.chart-slider {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #ddd;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    border-radius: 3px;
+}
+
+.chart-slider:hover {
+    opacity: 1;
+}
+
+.chart-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #3498db;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.chart-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #3498db;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
 .recent-readings,
 .recent-meals {
     max-height: 300px;

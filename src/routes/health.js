@@ -64,7 +64,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/add', (req, res) => {
-  const { glucose, ketones } = req.body;
+  const { glucose, ketones, reading_date } = req.body;
   
   // Get user settings to know which units they're using
   db.get(
@@ -90,6 +90,21 @@ router.post('/add', (req, res) => {
         return res.status(400).send('Invalid glucose or ketone values');
       }
       
+      // Validate and format the custom timestamp
+      const readingDate = new Date(reading_date);
+      const now = new Date();
+      
+      if (isNaN(readingDate.getTime())) {
+        return res.status(400).send('Invalid date and time');
+      }
+      
+      if (readingDate > now) {
+        return res.status(400).send('Reading date cannot be in the future');
+      }
+      
+      // Format timestamp for SQLite (YYYY-MM-DD HH:MM:SS)
+      const timestamp = readingDate.toISOString().replace('T', ' ').slice(0, 19);
+      
       // Convert to standard units for storage
       const glucoseStandard = toStandardUnit(glucoseLevel, 'glucose', settings.glucose_unit);
       const ketoneStandard = toStandardUnit(ketoneLevel, 'ketone', settings.ketone_unit);
@@ -97,8 +112,8 @@ router.post('/add', (req, res) => {
       const gki = calculateGKI(glucoseStandard, ketoneStandard);
       
       db.run(
-        'INSERT INTO glucose_readings (user_id, glucose_level, ketone_level, gki) VALUES (?, ?, ?, ?)',
-        [req.session.userId, glucoseStandard, ketoneStandard, gki],
+        'INSERT INTO glucose_readings (user_id, glucose_level, ketone_level, gki, timestamp) VALUES (?, ?, ?, ?, ?)',
+        [req.session.userId, glucoseStandard, ketoneStandard, gki, timestamp],
         function(err) {
           if (err) {
             return res.status(500).send('Error saving reading');

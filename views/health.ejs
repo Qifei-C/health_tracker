@@ -36,6 +36,10 @@
                     <label for="ketones">Ketones (<%= settings.ketone_unit %>):</label>
                     <input type="number" id="ketones" name="ketones" step="<%= settings.ketone_unit === 'mg/dL' ? '1' : '0.1' %>" required>
                 </div>
+                <div class="form-group">
+                    <label for="reading_date">Date & Time:</label>
+                    <input type="datetime-local" id="reading_date" name="reading_date" max="<%= new Date().toISOString().slice(0, 16) %>" value="<%= new Date().toISOString().slice(0, 16) %>" required>
+                </div>
                 <div class="form-group button-group">
                     <button type="submit">Add Reading</button>
                 </div>
@@ -60,7 +64,7 @@
                         <% if (readings.length > 0) { %>
                             <% readings.forEach(reading => { %>
                                 <tr>
-                                    <td><%= new Date(reading.timestamp).toLocaleDateString() %></td>
+                                    <td><%= new Date(reading.timestamp).toLocaleString() %></td>
                                     <td><%= reading.glucose_display %></td>
                                     <td><%= reading.ketone_display %></td>
                                     <td><%= reading.gki.toFixed(2) %></td>
